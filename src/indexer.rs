@@ -1,7 +1,8 @@
+use crate::file_index::{FileSystemEntry, IndexEntryType};
+use chrono::{DateTime, Utc};
 use std::fs;
 use std::path::{Path, PathBuf};
-use chrono::{DateTime, Utc};
-use crate::file_index::{FileSystemEntry, IndexEntryType};
+use uuid::Uuid;
 
 #[cfg(test)]
 #[path = "tests/indexer_tests.rs"]
@@ -9,18 +10,26 @@ mod file_index_tests;
 
 pub struct Indexer {
     pub directory: PathBuf,
+    pub meili_client: Option<meilisearch_sdk::client::Client>,
 }
 
 impl Indexer {
     // Create a new Indexer instance
-    pub fn new(directory: &Path) -> Self {
+    pub fn new(directory: &Path, meilisearch_url: &str, meilisearch_api_key: &str) -> Self {
+        let meili_client = if !meilisearch_url.is_empty() && !meilisearch_api_key.is_empty() {
+            meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key)).ok()
+        } else {
+            None
+        };
+
         Indexer {
             directory: directory.to_path_buf(),
+            meili_client,
         }
     }
 
-    pub fn index_files(&self) -> Vec<FileSystemEntry> {
-        let mut indexed_entries = Vec::new();
+    pub async fn index_files(&self) -> Vec<FileSystemEntry> {
+        let mut scanned_entries = Vec::new();
 
         // Recursively scan the directory
         if let Ok(entries) = fs::read_dir(&self.directory) {
@@ -30,13 +39,21 @@ impl Indexer {
 
                     // Index both files and folders
                     if let Some(index_entry) = Indexer::entry_to_index(&path) {
-                        indexed_entries.push(index_entry);
+                        scanned_entries.push(index_entry);
                     }
                 }
             }
         }
 
-        indexed_entries
+        // send to the client
+        if let Some(unwrapped_meili_client) = &self.meili_client {
+            let meili_index = unwrapped_meili_client.index("filesystem_index");
+            meili_index
+                .add_documents(&scanned_entries, Some("uuid"))
+                .await
+                .unwrap();
+        }
+        scanned_entries
     }
 
     fn entry_to_index(path: &Path) -> Option<FileSystemEntry> {
@@ -63,9 +80,13 @@ impl Indexer {
             Some(datetime)
         });
 
+        let path_str = path.to_string_lossy().to_string();
+        let uuid = Uuid::new_v5(&Uuid::NAMESPACE_URL, path_str.as_bytes()).to_string();
+
         Some(FileSystemEntry {
+            uuid,
+            path: path_str,
             name,
-            path: path.to_string_lossy().to_string(),
             entry_type,
             size,
             modified_date,
@@ -73,4 +94,5 @@ impl Indexer {
             preview: None, // Only relevant for files
         })
     }
+
 }

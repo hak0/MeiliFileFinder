@@ -1,11 +1,11 @@
+use crate::file_index::IndexEntryType;
+use crate::indexer::Indexer;
 use std::fs::{self, File};
 use std::io::Write;
 use tempfile::tempdir;
-use crate::indexer::Indexer;
-use crate::file_index::IndexEntryType;
 
-#[test]
-fn test_index_files_with_files_and_folders() {
+#[tokio::test]
+async fn test_index_files_with_files_and_folders() {
     // Create a temporary directory for testing
     let dir = tempdir().unwrap();
     let dir_path = dir.path();
@@ -20,10 +20,10 @@ fn test_index_files_with_files_and_folders() {
     fs::create_dir(&folder_path).unwrap();
 
     // Create the Indexer
-    let indexer = Indexer::new(dir_path);
+    let indexer = Indexer::new(dir_path, "", "");
 
     // Perform indexing
-    let entries = indexer.index_files();
+    let entries = indexer.index_files().await;
 
     // Validate results
     assert_eq!(entries.len(), 2);
@@ -39,8 +39,8 @@ fn test_index_files_with_files_and_folders() {
     assert!(!folder_entry.is_hidden);
 }
 
-#[test]
-fn test_index_hidden_file() {
+#[tokio::test]
+async fn test_index_hidden_file() {
     // Create a temporary directory for testing
     let dir = tempdir().unwrap();
     let dir_path = dir.path();
@@ -50,10 +50,10 @@ fn test_index_hidden_file() {
     File::create(&hidden_file_path).unwrap();
 
     // Create the Indexer
-    let indexer = Indexer::new(dir_path);
+    let indexer = Indexer::new(dir_path, "", "");
 
     // Perform indexing
-    let entries = indexer.index_files();
+    let entries = indexer.index_files().await;
 
     // Validate the hidden file is indexed
     assert_eq!(entries.len(), 1);

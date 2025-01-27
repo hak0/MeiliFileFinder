@@ -1,11 +1,17 @@
-use chrono::Utc;
 use crate::file_index::{FileSystemEntry, IndexEntryType};
+use chrono::Utc;
+use uuid::Uuid;
 
 #[test]
 fn test_filesystem_entry_file() {
     let entry = FileSystemEntry {
-        name: "file1.txt".to_string(),
+        uuid: Uuid::new_v5(
+            &Uuid::NAMESPACE_URL,
+            "/some/path/file1.txt".to_string().as_bytes(),
+        )
+        .to_string(),
         path: "/some/path/file1.txt".to_string(),
+        name: "file1.txt".to_string(),
         entry_type: IndexEntryType::File,
         size: Some(1024),
         modified_date: Some(Utc::now()),
@@ -23,6 +29,11 @@ fn test_filesystem_entry_file() {
 #[test]
 fn test_filesystem_entry_folder() {
     let entry = FileSystemEntry {
+        uuid: Uuid::new_v5(
+            &Uuid::NAMESPACE_URL,
+            "/some/path/my_folder".to_string().as_bytes(),
+        )
+        .to_string(),
         name: "my_folder".to_string(),
         path: "/some/path/my_folder".to_string(),
         entry_type: IndexEntryType::Folder,
