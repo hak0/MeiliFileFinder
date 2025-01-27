@@ -43,7 +43,6 @@ impl Indexer {
         // TODO: maybe record the uuid with modification time and skip ones same as the last-time scan
         for entry in WalkBuilder::new(&self.directory)
             .standard_filters(false)
-            .hidden(true) // Optionally, you can include hidden files/folders here
             .follow_links(false)
             // .add_custom_ignore_rule(ignore_rules)
             .build()

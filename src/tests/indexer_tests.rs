@@ -26,7 +26,8 @@ async fn test_index_files_with_files_and_folders() {
     let entries = indexer.index_files().await;
 
     // Validate results
-    assert_eq!(entries.len(), 2);
+    // 1 child folder, 1 child file and 1 parent
+    assert_eq!(entries.len(), 3);
 
     let file_entry = entries.iter().find(|e| e.name == "file1.txt").unwrap();
     assert_eq!(file_entry.entry_type, IndexEntryType::File);
@@ -56,9 +57,10 @@ async fn test_index_hidden_file() {
     let entries = indexer.index_files().await;
 
     // Validate the hidden file is indexed
-    assert_eq!(entries.len(), 1);
-    let hidden_entry = &entries[0];
-    assert_eq!(hidden_entry.name, ".hidden_file");
+    assert_eq!(entries.len(), 2);
+    let hidden_entry = entries.iter().find(|e| e.name == ".hidden_file").unwrap();
+    assert_eq!(hidden_entry .entry_type, IndexEntryType::File);
+    assert!(!hidden_entry.size.is_none());
     assert!(hidden_entry.is_hidden);
 }
 
@@ -79,9 +81,10 @@ async fn test_index_hidden_folder() {
     let entries = indexer.index_files().await;
 
     // Validate the hidden folder is indexed
-    assert_eq!(entries.len(), 1);
-    let hidden_entry = &entries[0];
-    assert_eq!(hidden_entry.name, ".hidden_folder");
+    // 1 parent and 1 child hidden folder
+    assert_eq!(entries.len(), 2);
+    let hidden_entry = entries.iter().find(|e| e.name == ".hidden_folder").unwrap();
+    assert_eq!(hidden_entry.entry_type, IndexEntryType::Folder);
     assert!(hidden_entry.is_hidden);
 }
 
@@ -121,7 +124,7 @@ async fn test_index_files_with_nested_subfolders() {
     let entries = indexer.index_files().await;
 
     // Validate results
-    assert_eq!(entries.len(), 4);
+    assert_eq!(entries.len(), 6);
 
     let file_entry = entries.iter().find(|e| e.name == "file1.txt").unwrap();
     assert_eq!(file_entry.entry_type, IndexEntryType::File);
