@@ -1,5 +1,6 @@
 use crate::file_index::{FileSystemEntry, IndexEntryType};
 use chrono::{DateTime, Utc};
+use ignore::{gitignore, WalkBuilder};
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -31,23 +32,42 @@ impl Indexer {
     pub async fn index_files(&self) -> Vec<FileSystemEntry> {
         let mut scanned_entries = Vec::new();
 
-        // Recursively scan the directory
-        if let Ok(entries) = fs::read_dir(&self.directory) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
+        // Load the ignore rules (e.g., from a .gitignore file or custom rules)
+        //let ignore_rules = gitignore::Gitignore::new(&self.directory).unwrap();
 
-                    // Index both files and folders
-                    if let Some(index_entry) = Indexer::entry_to_index(&path) {
-                        scanned_entries.push(index_entry);
-                    }
-                }
+        // Recursively scan the directory
+        // Use WalkBuilder to apply ignore rules efficiently
+        // TODO: use custom rules in config file to search hidden files
+        // TODO: use custom rules in config file to search symlinks
+        // TODO: add more settings mentioned in standard_filters
+        // TODO: maybe record the uuid with modification time and skip ones same as the last-time scan
+        for entry in WalkBuilder::new(&self.directory)
+            .standard_filters(false)
+            .hidden(true) // Optionally, you can include hidden files/folders here
+            .follow_links(false)
+            // .add_custom_ignore_rule(ignore_rules)
+            .build()
+            .filter_map(Result::ok)
+        {
+            let path = entry.path();
+
+            // Index both files and folders (ignoring based on the rules)
+            if let Some(index_entry) = Indexer::entry_to_index(&path) {
+                scanned_entries.push(index_entry);
             }
         }
 
         // send to the client
+        // TODO: incrementally sending indexes and deleting obselete indexes smartly
         if let Some(unwrapped_meili_client) = &self.meili_client {
             let meili_index = unwrapped_meili_client.index("filesystem_index");
+            // delete old index
+            meili_index
+                .delete_all_documents()
+                .await
+                .unwrap();
+
+            // create new index
             meili_index
                 .add_documents(&scanned_entries, Some("uuid"))
                 .await
@@ -94,5 +114,4 @@ impl Indexer {
             preview: None, // Only relevant for files
         })
     }
-
 }

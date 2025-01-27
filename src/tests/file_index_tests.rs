@@ -48,3 +48,25 @@ fn test_filesystem_entry_folder() {
     assert!(entry.size.is_none());
     assert!(entry.preview.is_none());
 }
+
+#[test]
+fn test_filesystem_entry_hidden() {
+    let entry = FileSystemEntry {
+        uuid: Uuid::new_v5(
+            &Uuid::NAMESPACE_URL,
+            "/some/path/.hidden_folder".to_string().as_bytes(),
+        )
+        .to_string(),
+        name: ".hidden_folder".to_string(),
+        path: "/some/path/.hidden_folder".to_string(),
+        entry_type: IndexEntryType::Folder,
+        size: None,
+        modified_date: None,
+        is_hidden: true,
+        preview: None,
+    };
+
+    assert_eq!(entry.name, ".hidden_folder");
+    assert_eq!(entry.entry_type, IndexEntryType::Folder);
+    assert!(entry.is_hidden);
+}
