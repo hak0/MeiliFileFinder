@@ -1,8 +1,21 @@
+use crate::config::ProjectConfig;
 use crate::file_index::IndexEntryType;
 use crate::indexer::Indexer;
 use std::fs::{self, File};
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use tempfile::tempdir;
+
+fn generate_test_config(rootpath: &Path) -> ProjectConfig {
+    ProjectConfig {
+        root: PathBuf::from(rootpath),
+        crontab: "".to_string(),
+        index_hidden: true,
+        max_depth: None,
+        follow_symlinks: false,
+        custom_ignore_rule_file: None,
+    }
+}
 
 #[tokio::test]
 async fn test_index_files_with_files_and_folders() {
@@ -20,10 +33,11 @@ async fn test_index_files_with_files_and_folders() {
     fs::create_dir(&folder_path).unwrap();
 
     // Create the Indexer
-    let indexer = Indexer::new(dir_path, "", "");
+    let project_config = generate_test_config(dir_path);
+    let indexer = Indexer::new(&project_config, &None);
 
     // Perform indexing
-    let entries = indexer.index_files().await;
+    let entries = indexer.index_files().await.unwrap();
 
     // Validate results
     // 1 child folder, 1 child file and 1 parent
@@ -51,15 +65,16 @@ async fn test_index_hidden_file() {
     File::create(&hidden_file_path).unwrap();
 
     // Create the Indexer
-    let indexer = Indexer::new(dir_path, "", "");
+    let project_config = generate_test_config(dir_path);
+    let indexer = Indexer::new(&project_config, &None);
 
     // Perform indexing
-    let entries = indexer.index_files().await;
+    let entries = indexer.index_files().await.unwrap();
 
     // Validate the hidden file is indexed
     assert_eq!(entries.len(), 2);
     let hidden_entry = entries.iter().find(|e| e.name == ".hidden_file").unwrap();
-    assert_eq!(hidden_entry .entry_type, IndexEntryType::File);
+    assert_eq!(hidden_entry.entry_type, IndexEntryType::File);
     assert!(!hidden_entry.size.is_none());
     assert!(hidden_entry.is_hidden);
 }
@@ -75,10 +90,11 @@ async fn test_index_hidden_folder() {
     fs::create_dir(&hidden_folder_path).unwrap();
 
     // Create the Indexer
-    let indexer = Indexer::new(dir_path, "", "");
+    let project_config = generate_test_config(dir_path);
+    let indexer = Indexer::new(&project_config, &None);
 
     // Perform indexing
-    let entries = indexer.index_files().await;
+    let entries = indexer.index_files().await.unwrap();
 
     // Validate the hidden folder is indexed
     // 1 parent and 1 child hidden folder
@@ -118,10 +134,11 @@ async fn test_index_files_with_nested_subfolders() {
     writeln!(file3, "This is yet another test file").unwrap();
 
     // Create the Indexer
-    let indexer = Indexer::new(dir_path, "", "");
+    let project_config = generate_test_config(dir_path);
+    let indexer = Indexer::new(&project_config, &None);
 
     // Perform indexing
-    let entries = indexer.index_files().await;
+    let entries = indexer.index_files().await.unwrap();
 
     // Validate results
     assert_eq!(entries.len(), 6);

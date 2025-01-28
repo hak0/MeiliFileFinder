@@ -1,0 +1,5 @@
+# This is a exmaple of custom ignore file
+# It follows globs from a gitignore
+
+**/README.md
+frontend/public

@@ -1,25 +1,16 @@
+mod config;
 mod file_index;
 mod indexer;
-
-use indexer::Indexer;
-use std::path::Path;
-
-const MEILISEARCH_URL: &str = "http://localhost:7700";
-const MEILISEARCH_API_KEY: &str = "hello_world123456";
+mod scheduler;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    // Define the directory to index
-    let directory = Path::new("./");
+    // Read Config   
+    let config = config::read_config("config.toml").expect("Failed to read config file");
+    println!("Config Loaded!");
+    println!("{:}", config);
 
-    // Create an Indexer instance
-    let indexer = Indexer::new(directory, MEILISEARCH_URL, MEILISEARCH_API_KEY);
-
-    // Index the files
-    let files = indexer.index_files().await;
-
-    // Print the indexed files
-    for file in files {
-        println!("{:?}", file);
-    }
+    // Start scheduler
+    println!("Starting Scheduler!");
+    scheduler::schedule_projects(&config.projects, &config.meilisearch).await.expect("Failed to initialize scheduler for projects");
 }

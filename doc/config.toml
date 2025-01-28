@@ -1,0 +1,26 @@
+# Example Configuration
+## Meilisearch configuration
+[meilisearch]
+meilisearch_url = "http://localhost:7700"
+meilisearch_api_key = "hello_world123456"
+
+## Example Project configurations
+## Crontab format: "SEC MIN HOUR DOM MON DOW"
+[[projects]]
+root = "./frontend"                           # Root directory to scan
+crontab = "0 0 */2 * * *"                     # Every 2 hours
+max_depth = 5                                 # Scan depth less than 5
+custom_ignore_rule_file = "doc/proj1-ignore"  # Add a custom ignore rule file
+index_hidden = true                           # scan hidden files as well
+follow_symlinks = false                       # follow symlinks during scanning
+
+[[projects]]                                  # We can scan multiple projects
+root = "./src"
+crontab = "0 0 0 * * *"                       # Daily at midnight
+### Using defaults for max_depth (unlimited), index_hidden (false), follow_symlinks (false)
+
+[[projects]]
+root = "./target"
+crontab = "0 */15 * * * *"                    # Every 15 minutes
+max_depth = 3
+follow_symlinks = true

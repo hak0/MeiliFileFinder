@@ -1,35 +1,45 @@
+use crate::config::{MeiliSearchConfig, ProjectConfig};
 use crate::file_index::{FileSystemEntry, IndexEntryType};
 use chrono::{DateTime, Utc};
-use ignore::{gitignore, WalkBuilder};
+use ignore::WalkBuilder;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use uuid::Uuid;
 
 #[cfg(test)]
 #[path = "tests/indexer_tests.rs"]
 mod file_index_tests;
 
+#[derive(Debug, Clone)]
 pub struct Indexer {
-    pub directory: PathBuf,
+    pub project_config: ProjectConfig,
     pub meili_client: Option<meilisearch_sdk::client::Client>,
 }
 
 impl Indexer {
     // Create a new Indexer instance
-    pub fn new(directory: &Path, meilisearch_url: &str, meilisearch_api_key: &str) -> Self {
-        let meili_client = if !meilisearch_url.is_empty() && !meilisearch_api_key.is_empty() {
-            meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key)).ok()
-        } else {
-            None
+    pub fn new(
+        project_config: &ProjectConfig,
+        meilisearch_config: &Option<MeiliSearchConfig>,
+    ) -> Self {
+        let meili_client = match meilisearch_config {
+            Some(MeiliSearchConfig {
+                meilisearch_url,
+                meilisearch_api_key,
+            }) => meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key))
+                .ok(),
+            None => None,
         };
 
         Indexer {
-            directory: directory.to_path_buf(),
+            project_config: project_config.clone(),
             meili_client,
         }
     }
 
-    pub async fn index_files(&self) -> Vec<FileSystemEntry> {
+    pub async fn index_files(
+        &self,
+    ) -> Result<Vec<FileSystemEntry>, meilisearch_sdk::errors::Error> {
         let mut scanned_entries = Vec::new();
 
         // Load the ignore rules (e.g., from a .gitignore file or custom rules)
@@ -37,17 +47,19 @@ impl Indexer {
 
         // Recursively scan the directory
         // Use WalkBuilder to apply ignore rules efficiently
-        // TODO: use custom rules in config file to search hidden files
-        // TODO: use custom rules in config file to search symlinks
-        // TODO: add more settings mentioned in standard_filters
         // TODO: maybe record the uuid with modification time and skip ones same as the last-time scan
-        for entry in WalkBuilder::new(&self.directory)
+        let mut walkerbuilder = WalkBuilder::new(&self.project_config.root);
+        walkerbuilder
             .standard_filters(false)
-            .follow_links(false)
-            // .add_custom_ignore_rule(ignore_rules)
-            .build()
-            .filter_map(Result::ok)
-        {
+            .hidden(!self.project_config.index_hidden)
+            .max_depth(self.project_config.max_depth)
+            .follow_links(self.project_config.follow_symlinks);
+
+        if let Some(custom_ignore_rule_file) = &self.project_config.custom_ignore_rule_file {
+            walkerbuilder.add_custom_ignore_filename(custom_ignore_rule_file);
+        }
+
+        for entry in walkerbuilder.build().filter_map(Result::ok) {
             let path = entry.path();
 
             // Index both files and folders (ignoring based on the rules)
@@ -61,10 +73,7 @@ impl Indexer {
         if let Some(unwrapped_meili_client) = &self.meili_client {
             let meili_index = unwrapped_meili_client.index("filesystem_index");
             // delete old index
-            meili_index
-                .delete_all_documents()
-                .await
-                .unwrap();
+            meili_index.delete_all_documents().await.unwrap();
 
             // create new index
             meili_index
@@ -72,7 +81,7 @@ impl Indexer {
                 .await
                 .unwrap();
         }
-        scanned_entries
+        Ok(scanned_entries)
     }
 
     fn entry_to_index(path: &Path) -> Option<FileSystemEntry> {
