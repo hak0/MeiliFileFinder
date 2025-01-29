@@ -1,4 +1,4 @@
-use crate::config::ProjectConfig;
+use crate::config::{MeiliSearchConfig, ProjectConfig};
 use crate::file_index::IndexEntryType;
 use crate::indexer::Indexer;
 use std::fs::{self, File};
@@ -6,15 +6,26 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
-fn generate_test_config(rootpath: &Path) -> ProjectConfig {
-    ProjectConfig {
+
+// create a mock meilisearch client that always return ok but do nothing
+
+fn generate_test_config(rootpath: &Path) -> (MeiliSearchConfig, ProjectConfig) {
+    let meilisearch_config = MeiliSearchConfig {
+        meilisearch_url: "dummy_url".to_string(),
+        meilisearch_api_key: "dummy_key".to_string(),
+        meilisearch_bin_path: "".to_string(),
+        meilisearch_db_path: "".to_string(),
+        meilisearch_telemetry: true,
+    };
+    let project_config = ProjectConfig {
         root: PathBuf::from(rootpath),
         crontab: "".to_string(),
         index_hidden: true,
         max_depth: None,
         follow_symlinks: false,
         custom_ignore_rule_file: None,
-    }
+    };
+    (meilisearch_config, project_config)
 }
 
 #[tokio::test]
@@ -33,8 +44,9 @@ async fn test_index_files_with_files_and_folders() {
     fs::create_dir(&folder_path).unwrap();
 
     // Create the Indexer
-    let project_config = generate_test_config(dir_path);
-    let indexer = Indexer::new(&project_config, &None);
+    let (meilisaerch_config, project_config) = generate_test_config(dir_path);
+    let mut indexer = Indexer::new(&project_config, &meilisaerch_config);
+    indexer.meili_client = None;
 
     // Perform indexing
     let entries = indexer.index_files().await.unwrap();
@@ -65,8 +77,9 @@ async fn test_index_hidden_file() {
     File::create(&hidden_file_path).unwrap();
 
     // Create the Indexer
-    let project_config = generate_test_config(dir_path);
-    let indexer = Indexer::new(&project_config, &None);
+    let (meilisaerch_config, project_config) = generate_test_config(dir_path);
+    let mut indexer = Indexer::new(&project_config, &meilisaerch_config);
+    indexer.meili_client = None;
 
     // Perform indexing
     let entries = indexer.index_files().await.unwrap();
@@ -90,8 +103,9 @@ async fn test_index_hidden_folder() {
     fs::create_dir(&hidden_folder_path).unwrap();
 
     // Create the Indexer
-    let project_config = generate_test_config(dir_path);
-    let indexer = Indexer::new(&project_config, &None);
+    let (meilisaerch_config, project_config) = generate_test_config(dir_path);
+    let mut indexer = Indexer::new(&project_config, &meilisaerch_config);
+    indexer.meili_client = None;
 
     // Perform indexing
     let entries = indexer.index_files().await.unwrap();
@@ -134,8 +148,9 @@ async fn test_index_files_with_nested_subfolders() {
     writeln!(file3, "This is yet another test file").unwrap();
 
     // Create the Indexer
-    let project_config = generate_test_config(dir_path);
-    let indexer = Indexer::new(&project_config, &None);
+    let (meilisaerch_config, project_config) = generate_test_config(dir_path);
+    let mut indexer = Indexer::new(&project_config, &meilisaerch_config);
+    indexer.meili_client = None;
 
     // Perform indexing
     let entries = indexer.index_files().await.unwrap();

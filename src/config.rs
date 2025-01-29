@@ -1,10 +1,30 @@
 use serde::Deserialize;
-use std::{fmt::{self, Display}, path::PathBuf};
+use std::{
+    fmt::{self, Display},
+    path::PathBuf,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct MeiliSearchConfig {
     pub meilisearch_url: String,
     pub meilisearch_api_key: String,
+    #[serde(default = "default_meilisearch_bin_path")]
+    pub meilisearch_bin_path: String,
+    #[serde(default = "default_meilisearch_db_path")]
+    pub meilisearch_db_path: String,
+    #[serde(default = "default_meilisearch_telemetry")]
+    pub meilisearch_telemetry: bool,
+}
+
+impl Display for MeiliSearchConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Meilisearch Configuration:")?;
+        writeln!(f, "  URL: {}", self.meilisearch_url)?;
+        writeln!(f, "  API Key: **hidden**")?;
+        writeln!(f, "  Binary Path: {}", self.meilisearch_bin_path)?;
+        writeln!(f, "  Database Path: {}", self.meilisearch_db_path)?;
+        writeln!(f, "  Telemetry: {}", self.meilisearch_telemetry)
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -27,16 +47,28 @@ impl Display for ProjectConfig {
         writeln!(f, "  Root Directory: {:?}", self.root)?;
         writeln!(f, "  Schedule: {}", self.crontab)?;
         writeln!(f, "  Max Depth: {}", self.max_depth.unwrap_or(0))?;
-        writeln!(f, "  Ignore Rules: {}", 
+        writeln!(
+            f,
+            "  Ignore Rules: {}",
             self.custom_ignore_rule_file.as_deref().unwrap_or("none")
         )?;
-        write!(f, "  Index Hidden: {}\n  Follow Symlinks: {}", 
-            self.index_hidden, 
-            self.follow_symlinks
+        write!(
+            f,
+            "  Index Hidden: {}\n  Follow Symlinks: {}",
+            self.index_hidden, self.follow_symlinks
         )
     }
 }
 
+fn default_meilisearch_bin_path() -> String {
+    "".to_string()
+}
+fn default_meilisearch_db_path() -> String {
+    "".to_string()
+}
+fn default_meilisearch_telemetry() -> bool {
+    true
+}
 fn default_maxdepth() -> Option<usize> {
     None
 }
@@ -52,23 +84,21 @@ fn default_follow_symlinks() -> bool {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    pub meilisearch: Option<MeiliSearchConfig>,
+    pub meilisearch: MeiliSearchConfig,
     pub projects: Vec<ProjectConfig>,
 }
 
 impl Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "MeiliSearch Configuration:")?;
-        if let Some(meilisearch) = &self.meilisearch {
-            writeln!(f, "  URL: {}", meilisearch.meilisearch_url)?;
-            writeln!(f, "  API Key: **hidden**")?;
-        } else {
-            writeln!(f, "  MeiliSearch not configured")?;
-        }
+        let meilisearch_config = &self.meilisearch;
+        writeln!(f, "{}\n", meilisearch_config)?;
 
-        writeln!(f, "\nProjects:")?;
+        writeln!(f, "Projects:")?;
         for project in &self.projects {
             writeln!(f, "{}\n", project)?;
+        }
+        if self.projects.is_empty() {
+            writeln!(f, "No Projects\n")?;
         }
 
         Ok(())

@@ -7,7 +7,7 @@ use crate::indexer;
 
 pub async fn schedule_projects(
     projects: &[ProjectConfig], // Use slice instead of &Vec for better ergonomics
-    meilisearch_config: &Option<MeiliSearchConfig>,
+    meilisearch_config: &MeiliSearchConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Scheduler!");
     let sched = JobScheduler::new().await?;

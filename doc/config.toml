@@ -1,8 +1,17 @@
 # Example Configuration
 ## Meilisearch configuration
 [meilisearch]
+### meilisearch url for server access. No need to be exposed
 meilisearch_url = "http://localhost:7700"
+### meiliesearch master key. It should be at least 16 bytes long
 meilisearch_api_key = "hello_world123456"
+### meilisearch binary path and db path. 
+### Used for starting and stopping the meilisearch intance by server
+### If you are running external meilisearch instance, leave these empty
+meilisearch_bin_path = "meilisearch"
+meilisearch_db_path = "$HOME/.config/data.ms"
+### whether to send meilisearch telemetry data, on by default
+meiliseach_telemetry = true
 
 ## Example Project configurations
 ## Crontab format: "SEC MIN HOUR DOM MON DOW"

@@ -1,10 +1,7 @@
+use crate::config::MeiliSearchConfig;
+
 use axum::{
-    body::Body,
-    extract::{Request, State},
-    http::uri::Uri,
-    response::{IntoResponse, Response},
-    routing::any,
-    Router,
+    body::Body, extract::{Request, State}, http::uri::Uri, response::{IntoResponse, Response}, routing::any, Router
 };
 use hyper::StatusCode;
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
@@ -15,7 +12,7 @@ type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
 
 const MEILISEARCH_ENTRY_PREFIX: &str = "/meilisearch";
 
-pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start_server(meilisearch_config: &MeiliSearchConfig) -> Result<(), Box<dyn std::error::Error>> {
     // Serve static files and fallback to index.html for client-side routing
     println!("Starting Server!");
     let file_server = ServeDir::new("static").not_found_service(ServeDir::new("static/index.html"));
@@ -26,12 +23,13 @@ pub async fn start_server() -> Result<(), Box<dyn std::error::Error>> {
         hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
             .build(HttpConnector::new());
     let meilisearch_entry_rule = MEILISEARCH_ENTRY_PREFIX.to_string() + "/{*wildcard}";
-    let app = Router::new()
+    let meilisearch_base_url = meilisearch_config.meilisearch_url.clone();
+    let routes= Router::new()
         .route(&meilisearch_entry_rule, any(reverse_proxy_handler))
-        .with_state(client)
+        .with_state((client, meilisearch_base_url))
         .fallback_service(file_server);
 
-    serve(app, 3000).await
+    serve(routes, 3000).await
 }
 
 async fn serve(app: Router, port: u16) -> Result<(), Box<dyn std::error::Error>> {
@@ -43,8 +41,9 @@ async fn serve(app: Router, port: u16) -> Result<(), Box<dyn std::error::Error>>
         .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
 }
 
+
 async fn reverse_proxy_handler(
-    State(client): State<Client>,
+    State((client, meilisearch_base_url)): State<(Client, String)>,
     mut req: Request,
 ) -> Result<Response, StatusCode> {
     let path = req.uri().path();
@@ -58,7 +57,7 @@ async fn reverse_proxy_handler(
         .strip_prefix(MEILISEARCH_ENTRY_PREFIX)
         .unwrap_or(path_query);
 
-    let uri = format!("http://localhost:7700{}", path_query_stripped);
+    let uri = format!("{}{}", meilisearch_base_url, path_query_stripped);
 
     *req.uri_mut() = Uri::try_from(uri).unwrap();
 

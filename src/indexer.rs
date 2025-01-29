@@ -20,16 +20,15 @@ impl Indexer {
     // Create a new Indexer instance
     pub fn new(
         project_config: &ProjectConfig,
-        meilisearch_config: &Option<MeiliSearchConfig>,
+        meilisearch_config: &MeiliSearchConfig,
     ) -> Self {
-        let meili_client = match meilisearch_config {
-            Some(MeiliSearchConfig {
-                meilisearch_url,
-                meilisearch_api_key,
-            }) => meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key))
-                .ok(),
-            None => None,
-        };
+        let meilisearch_url = &meilisearch_config.meilisearch_url;
+        let meilisearch_api_key = &meilisearch_config.meilisearch_api_key;
+        if meilisearch_url.is_empty() || meilisearch_api_key.is_empty() {
+            eprintln!("Meilisearch URL or API key is empty. Exiting.");
+            std::process::exit(1);
+        }
+        let meili_client = meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key)).ok();
 
         Indexer {
             project_config: project_config.clone(),
@@ -121,5 +120,18 @@ impl Indexer {
             is_hidden,
             preview: None, // Only relevant for files
         })
+    }
+}
+
+pub async fn is_meilisearch_running(meilisearch_config: &MeiliSearchConfig) -> bool {
+    let meilisearch_url = &meilisearch_config.meilisearch_url;
+    let meilisearch_api_key = &meilisearch_config.meilisearch_api_key;
+    let meili_client =
+        meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key));
+
+    if let Ok(meili_client) = meili_client {
+        return meili_client.health().await.is_ok();
+    } else {
+        return false;
     }
 }
