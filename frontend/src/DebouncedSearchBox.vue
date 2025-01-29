@@ -63,7 +63,7 @@ export default {
       localQuery: "",
     };
   },
-  destroyed() {
+  unmounted() {
     if (this.timerId) {
       clearTimeout(this.timerId);
     }

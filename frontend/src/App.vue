@@ -69,7 +69,7 @@ export default {
   data() {
     return {
       searchClient: instantMeiliSearch(
-        "http://127.0.0.1:7700",
+        "http://localhost:3000/meilisearch",
         "hello_world123456",
         {
           finitePagination: true,
