@@ -49,8 +49,13 @@ impl Indexer {
         walkerbuilder
             .standard_filters(false)
             .hidden(!self.project_config.index_hidden)
-            .max_depth(self.project_config.max_depth)
             .follow_links(self.project_config.follow_symlinks);
+
+        if self.project_config.max_depth > 0 {
+            walkerbuilder.max_depth(Some(self.project_config.max_depth));
+        } else {
+            walkerbuilder.max_depth(None);
+        }
 
         if let Some(custom_ignore_rule_file) = &self.project_config.custom_ignore_rule_file {
             walkerbuilder.add_custom_ignore_filename(custom_ignore_rule_file);

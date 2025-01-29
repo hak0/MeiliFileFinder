@@ -21,7 +21,7 @@ fn generate_test_config(rootpath: &Path) -> (MeiliSearchConfig, ProjectConfig) {
         root: PathBuf::from(rootpath),
         crontab: "".to_string(),
         index_hidden: true,
-        max_depth: None,
+        max_depth: 0,
         follow_symlinks: false,
         custom_ignore_rule_file: None,
     };

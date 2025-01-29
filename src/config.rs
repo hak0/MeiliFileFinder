@@ -32,7 +32,7 @@ pub struct ProjectConfig {
     pub root: PathBuf,
     pub crontab: String,
     #[serde(default = "default_maxdepth")]
-    pub max_depth: Option<usize>,
+    pub max_depth: usize,
     #[serde(default = "default_custom_ignore_rule_file")]
     pub custom_ignore_rule_file: Option<String>,
     #[serde(default = "default_index_hidden")]
@@ -46,7 +46,7 @@ impl Display for ProjectConfig {
         writeln!(f, "Project Configuration:")?;
         writeln!(f, "  Root Directory: {:?}", self.root)?;
         writeln!(f, "  Schedule: {}", self.crontab)?;
-        writeln!(f, "  Max Depth(0 for infinitive depth): {}", self.max_depth.unwrap_or(0))?;
+        writeln!(f, "  Max Depth(0 for infinitive depth): {}", self.max_depth)?;
         writeln!(
             f,
             "  Extra Ignore-rules File: {}",
@@ -69,8 +69,8 @@ fn default_meilisearch_db_path() -> String {
 fn default_meilisearch_telemetry() -> bool {
     true
 }
-fn default_maxdepth() -> Option<usize> {
-    None
+fn default_maxdepth() -> usize {
+    0
 }
 fn default_custom_ignore_rule_file() -> Option<String> {
     None
