@@ -46,15 +46,15 @@ impl Display for ProjectConfig {
         writeln!(f, "Project Configuration:")?;
         writeln!(f, "  Root Directory: {:?}", self.root)?;
         writeln!(f, "  Schedule: {}", self.crontab)?;
-        writeln!(f, "  Max Depth: {}", self.max_depth.unwrap_or(0))?;
+        writeln!(f, "  Max Depth(0 for infinitive depth): {}", self.max_depth.unwrap_or(0))?;
         writeln!(
             f,
-            "  Ignore Rules: {}",
+            "  Extra Ignore-rules File: {}",
             self.custom_ignore_rule_file.as_deref().unwrap_or("none")
         )?;
         write!(
             f,
-            "  Index Hidden: {}\n  Follow Symlinks: {}",
+            "  Index Hidden File/Folders: {}\n  Follow Symlinks: {}",
             self.index_hidden, self.follow_symlinks
         )
     }
@@ -91,11 +91,11 @@ pub struct Config {
 impl Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let meilisearch_config = &self.meilisearch;
-        writeln!(f, "{}\n", meilisearch_config)?;
+        writeln!(f, "{}", meilisearch_config)?;
 
         writeln!(f, "Projects:")?;
         for project in &self.projects {
-            writeln!(f, "{}\n", project)?;
+            writeln!(f, "{}", project)?;
         }
         if self.projects.is_empty() {
             writeln!(f, "No Projects\n")?;

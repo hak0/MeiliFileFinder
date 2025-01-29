@@ -20,11 +20,14 @@ I will add functionalities in the future:
   - [ ] also add thumbnail and text preview
 - [ ] meilisearch
   - [ ] configure master key by environment variable
-  - [ ] configure whether to send telemetry info by environment variable
+  - [x] configure whether to send telemetry info by environment variable
 - [ ] frontend
   - [ ] a basic authentication using a master key.
   - [ ] a "remember me" option to store the query tokens in the cookies
   - [ ] a "logout" button
+  - [ ] add an option to match exactly, including symbols like "."
+  - [ ] add filters to filter by file type, file size, and file modification time
+  - [ ] add a "sort by" option
   - [ ] parse file types from the extension and add filetype icons for each entry
   - [ ] make the UI more user-friendly, and fit mobile devices as well
   - [ ] maybe an extra setup to configure a webdav root path, so that the files can be downloaded, making it more close to Everything

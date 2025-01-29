@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 async fn main() {
     // Read Config
     let config = config::read_config("doc/config.toml").expect("Failed to read config file");
-    println!("Config Loaded!");
+    println!("Config Loaded!\n");
     println!("{:}", config);
 
     check_and_start_meilisearch(&config.meilisearch).await;
@@ -84,7 +84,7 @@ async fn check_and_start_meilisearch(meilisearch_config: &config::MeiliSearchCon
             child_builder.env("MEILI_DB_PATH", meilisearch_db_path);
         }
         if meilisearch_telemetry == false {
-            child_builder.raw_arg("--no-analytics");
+            child_builder.arg("--no-analytics");
         }
 
         // Spawn Meilisearch
