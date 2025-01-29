@@ -18,17 +18,15 @@ pub struct Indexer {
 
 impl Indexer {
     // Create a new Indexer instance
-    pub fn new(
-        project_config: &ProjectConfig,
-        meilisearch_config: &MeiliSearchConfig,
-    ) -> Self {
+    pub fn new(project_config: &ProjectConfig, meilisearch_config: &MeiliSearchConfig) -> Self {
         let meilisearch_url = &meilisearch_config.meilisearch_url;
         let meilisearch_api_key = &meilisearch_config.meilisearch_api_key;
         if meilisearch_url.is_empty() || meilisearch_api_key.is_empty() {
             eprintln!("Meilisearch URL or API key is empty. Exiting.");
             std::process::exit(1);
         }
-        let meili_client = meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key)).ok();
+        let meili_client =
+            meilisearch_sdk::client::Client::new(meilisearch_url, Some(meilisearch_api_key)).ok();
 
         Indexer {
             project_config: project_config.clone(),
@@ -72,13 +70,17 @@ impl Indexer {
         if let Some(unwrapped_meili_client) = &self.meili_client {
             let meili_index = unwrapped_meili_client.index("filesystem_index");
             // delete old index
-            meili_index.delete_all_documents().await.unwrap();
-
+            let delete_operation = meili_index.delete_all_documents().await;
+            if delete_operation.is_err() {
+                eprintln!("Failed to delete old index!");
+            }
             // create new index
-            meili_index
+            let create_operation = meili_index
                 .add_documents(&scanned_entries, Some("uuid"))
-                .await
-                .unwrap();
+                .await;
+            if create_operation.is_err() {
+                eprintln!("Failed to create new index!");
+            }
         }
         Ok(scanned_entries)
     }
