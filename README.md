@@ -16,9 +16,8 @@ I will add functionalities in the future:
   - [x] add a config file for tasks with different scan endpoints and specify crontab / file ignore rules / whether to follow symlinks respectively
   - [x] add a scheduler to schedule the scan according to the config file
   - [ ] instead of "cleanup and full-reindex", come up with some incremental indexing. Maybe we can use the tree structure to record folder size, newest member modification time, folder path, uuid, and only re-index changed folders. But this requires another file to store these states.
-  - [ ] configure the scanning index by environment variables
-  - [ ] scan metadata, maybe similar to sist2 but simpler(text files and maybe some image metadata)
-  - [ ] also add thumbnail and 
+  - [ ] scan file metadata, maybe similar to sist2 but simpler(text files and maybe some image metadata), but no need to scan compression files
+  - [ ] also add thumbnail and text preview
 - [ ] meilisearch
   - [ ] configure master key by environment variable
   - [ ] configure whether to send telemetry info by environment variable

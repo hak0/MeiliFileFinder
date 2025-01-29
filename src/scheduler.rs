@@ -9,6 +9,7 @@ pub async fn schedule_projects(
     projects: &[ProjectConfig], // Use slice instead of &Vec for better ergonomics
     meilisearch_config: &Option<MeiliSearchConfig>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting Scheduler!");
     let sched = JobScheduler::new().await?;
 
     for project in projects {
@@ -36,8 +37,6 @@ pub async fn schedule_projects(
         sched.add(job).await?;
     }
 
-    // Feature 'signal' must be enabled
-    sched.shutdown_on_ctrl_c();
     sched.start().await?;
 
     // Keep the scheduler running
