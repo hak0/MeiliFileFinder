@@ -16,6 +16,8 @@ pub struct Indexer {
     pub meili_client: Option<meilisearch_sdk::client::Client>,
 }
 
+const MEILISEARCH_BATCH_SIZE_LIMIT: usize = 20*1000*1000; // by default 100MB, we use 1/5 of the limit
+
 impl Indexer {
     // Create a new Indexer instance
     pub fn new(project_config: &ProjectConfig, meilisearch_config: &MeiliSearchConfig) -> Self {
@@ -36,8 +38,10 @@ impl Indexer {
 
     pub async fn index_files(
         &self,
-    ) -> Result<Vec<FileSystemEntry>, meilisearch_sdk::errors::Error> {
+    ) -> Result<(Vec<FileSystemEntry>, usize), meilisearch_sdk::errors::Error> {
         let mut scanned_entries = Vec::new();
+        // scan and index files and folders
+        // return the last batch of scanned entries and the total size of all scanned entries
 
         // Load the ignore rules (e.g., from a .gitignore file or custom rules)
         //let ignore_rules = gitignore::Gitignore::new(&self.directory).unwrap();
@@ -61,33 +65,46 @@ impl Indexer {
             walkerbuilder.add_custom_ignore_filename(custom_ignore_rule_file);
         }
 
+        // TODO: incrementally sending indexes and deleting obselete indexes smartly
+        // Clean Old Index
+        if let Some(unwrapped_meili_client) = &self.meili_client {
+            let meili_index = unwrapped_meili_client.index("filesystem_index");
+            let delete_operation = meili_index.delete_all_documents().await;
+            if delete_operation.is_err() {
+                eprintln!("Failed to delete old index!");
+            }
+        }
+
+        let mut scanned_entries_size = 0;
         for entry in walkerbuilder.build().filter_map(Result::ok) {
             let path = entry.path();
 
             // Index both files and folders (ignoring based on the rules)
             if let Some(index_entry) = Indexer::entry_to_index(&path) {
                 scanned_entries.push(index_entry);
+                scanned_entries_size += 1;
+            }
+
+            // Send the batch to MeiliSearch if it's too large
+            if let Some(unwrapped_meili_client) = &self.meili_client {
+                let scanned_entries_size = size_of_val(&*scanned_entries);
+                if scanned_entries_size > MEILISEARCH_BATCH_SIZE_LIMIT {
+                    let meili_index = unwrapped_meili_client.index("filesystem_index");
+                    let create_operation = meili_index
+                        .add_documents(&scanned_entries, Some("uuid"))
+                        .await;
+                    if create_operation.is_err() {
+                        eprintln!("Failed to create new index!");
+                        for entry in &scanned_entries {
+                            eprintln!("  Failed to index: {:?}", entry.path);
+                        }
+                    }
+                }
+                scanned_entries.clear();
             }
         }
 
-        // send to the client
-        // TODO: incrementally sending indexes and deleting obselete indexes smartly
-        if let Some(unwrapped_meili_client) = &self.meili_client {
-            let meili_index = unwrapped_meili_client.index("filesystem_index");
-            // delete old index
-            let delete_operation = meili_index.delete_all_documents().await;
-            if delete_operation.is_err() {
-                eprintln!("Failed to delete old index!");
-            }
-            // create new index
-            let create_operation = meili_index
-                .add_documents(&scanned_entries, Some("uuid"))
-                .await;
-            if create_operation.is_err() {
-                eprintln!("Failed to create new index!");
-            }
-        }
-        Ok(scanned_entries)
+        Ok((scanned_entries, scanned_entries_size))
     }
 
     fn entry_to_index(path: &Path) -> Option<FileSystemEntry> {

@@ -17,7 +17,7 @@ meiliseach_telemetry = true
 ## Crontab format: "SEC MIN HOUR DOM MON DOW"
 [[projects]]
 root = "./frontend"                           # Root directory to scan
-crontab = "0 0 */2 * * *"                     # Every 2 hours
+crontab = "0 0 */2 * * *"                     # Every 2 hours. The timezone for crontab is UTC
 max_depth = 5                                 # Scan depth less than 5
 custom_ignore_rule_file = "doc/proj1-ignore"  # Add a custom ignore rule file
 index_hidden = true                           # scan hidden files as well

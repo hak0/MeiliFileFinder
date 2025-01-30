@@ -6,9 +6,6 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
-
-// create a mock meilisearch client that always return ok but do nothing
-
 fn generate_test_config(rootpath: &Path) -> (MeiliSearchConfig, ProjectConfig) {
     let meilisearch_config = MeiliSearchConfig {
         meilisearch_url: "dummy_url".to_string(),
@@ -49,11 +46,12 @@ async fn test_index_files_with_files_and_folders() {
     indexer.meili_client = None;
 
     // Perform indexing
-    let entries = indexer.index_files().await.unwrap();
+    let (entries, entries_count) = indexer.index_files().await.unwrap();
 
     // Validate results
     // 1 child folder, 1 child file and 1 parent
     assert_eq!(entries.len(), 3);
+    assert_eq!(entries_count, 3);
 
     let file_entry = entries.iter().find(|e| e.name == "file1.txt").unwrap();
     assert_eq!(file_entry.entry_type, IndexEntryType::File);
@@ -82,10 +80,11 @@ async fn test_index_hidden_file() {
     indexer.meili_client = None;
 
     // Perform indexing
-    let entries = indexer.index_files().await.unwrap();
+    let (entries, entries_count) = indexer.index_files().await.unwrap();
 
     // Validate the hidden file is indexed
     assert_eq!(entries.len(), 2);
+    assert_eq!(entries_count, 2);
     let hidden_entry = entries.iter().find(|e| e.name == ".hidden_file").unwrap();
     assert_eq!(hidden_entry.entry_type, IndexEntryType::File);
     assert!(!hidden_entry.size.is_none());
@@ -108,11 +107,12 @@ async fn test_index_hidden_folder() {
     indexer.meili_client = None;
 
     // Perform indexing
-    let entries = indexer.index_files().await.unwrap();
+    let (entries, entries_count) = indexer.index_files().await.unwrap();
 
     // Validate the hidden folder is indexed
     // 1 parent and 1 child hidden folder
     assert_eq!(entries.len(), 2);
+    assert_eq!(entries_count, 2);
     let hidden_entry = entries.iter().find(|e| e.name == ".hidden_folder").unwrap();
     assert_eq!(hidden_entry.entry_type, IndexEntryType::Folder);
     assert!(hidden_entry.is_hidden);
@@ -153,10 +153,11 @@ async fn test_index_files_with_nested_subfolders() {
     indexer.meili_client = None;
 
     // Perform indexing
-    let entries = indexer.index_files().await.unwrap();
+    let (entries, entries_count) = indexer.index_files().await.unwrap();
 
     // Validate results
     assert_eq!(entries.len(), 6);
+    assert_eq!(entries_count, 6);
 
     let file_entry = entries.iter().find(|e| e.name == "file1.txt").unwrap();
     assert_eq!(file_entry.entry_type, IndexEntryType::File);
