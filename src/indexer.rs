@@ -16,7 +16,9 @@ pub struct Indexer {
     pub meili_client: Option<meilisearch_sdk::client::Client>,
 }
 
-const MEILISEARCH_BATCH_SIZE_LIMIT: usize = 20*1000*1000; // by default 100MB, we use 1/5 of the limit
+// suppose each entry take 2kb, 10000 entries will take 20MB,
+// which is lower than the default meilisearch batch limit of 100MB
+const MEILISEARCH_BATCH_ENTRIES_LIMIT: usize = 10000;
 
 impl Indexer {
     // Create a new Indexer instance
@@ -75,36 +77,42 @@ impl Indexer {
             }
         }
 
-        let mut scanned_entries_size = 0;
+        let mut scanned_entries_total_count = 0;
         for entry in walkerbuilder.build().filter_map(Result::ok) {
             let path = entry.path();
 
             // Index both files and folders (ignoring based on the rules)
             if let Some(index_entry) = Indexer::entry_to_index(&path) {
                 scanned_entries.push(index_entry);
-                scanned_entries_size += 1;
+                scanned_entries_total_count += 1;
             }
 
-            // Send the batch to MeiliSearch if it's too large
-            if let Some(unwrapped_meili_client) = &self.meili_client {
-                let scanned_entries_size = size_of_val(&*scanned_entries);
-                if scanned_entries_size > MEILISEARCH_BATCH_SIZE_LIMIT {
-                    let meili_index = unwrapped_meili_client.index("filesystem_index");
-                    let create_operation = meili_index
-                        .add_documents(&scanned_entries, Some("uuid"))
-                        .await;
-                    if create_operation.is_err() {
-                        eprintln!("Failed to create new index!");
-                        for entry in &scanned_entries {
-                            eprintln!("  Failed to index: {:?}", entry.path);
-                        }
-                    }
-                }
+            // Send the batch of 10000 entries to MeiliSearch
+            if scanned_entries.len() >= MEILISEARCH_BATCH_ENTRIES_LIMIT {
+                self.send_entries_to_meilisearch(&scanned_entries).await;
                 scanned_entries.clear();
             }
         }
 
-        Ok((scanned_entries, scanned_entries_size))
+        // Send remaining entries to MeiliSearch
+        self.send_entries_to_meilisearch(&scanned_entries).await;
+
+        Ok((scanned_entries, scanned_entries_total_count))
+    }
+
+    async fn send_entries_to_meilisearch(&self, scanned_entries: &Vec<FileSystemEntry>) {
+        if let Some(unwrapped_meili_client) = &self.meili_client {
+            let meili_index = unwrapped_meili_client.index("filesystem_index");
+            let create_operation = meili_index
+                .add_documents(scanned_entries, Some("uuid"))
+                .await;
+            if create_operation.is_err() {
+                eprintln!("Failed to create new index!");
+                for entry in scanned_entries {
+                    eprintln!("  Failed to index: {:?}", entry.path);
+                }
+            }
+        }
     }
 
     fn entry_to_index(path: &Path) -> Option<FileSystemEntry> {

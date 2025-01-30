@@ -1,12 +1,10 @@
 <template>
   <header class="header">
     <h1 class="header-title">MeiliFileFinder</h1>
-    <!-- <p class="header-subtitle">Search in Steam video games 🎮</p> -->
+    <button class="api-key-button" @click="showDialog = true">Set API Key</button>
   </header>
   <p class="disclaimer">
-    <!-- This is not the official Steam dataset but only for demo purpose. Enjoy -->
-    <!-- searching with MeiliSearch! -->
-     This is a altered search frontend from meilisearch official Vue3 demo.
+    This is an altered search frontend from Meilisearch's official Vue3 demo.
   </p>
   <div class="container">
     <ais-instant-search
@@ -27,8 +25,6 @@
             },
           ]"
         />
-        <!-- <h2>Is_hidden</h2> -->
-        <!-- <ais-refinement-list attribute="is_hidden" /> -->
       </div>
       <div class="search-panel__results">
         <app-debounced-search-box :delay="5" class="ais-SearchBox-input" />
@@ -37,14 +33,7 @@
             <div>
               <div class="hit-name">
                 <ais-snippet :hit="item" attribute="path" />
-                <!-- <ais-highlight :hit="item" attribute="name" /> -->
               </div>
-              <!-- <img :src="item.image" align="left" :alt="item.image" /> -->
-              <!-- <div class="hit-description"> -->
-                <!-- <ais-snippet :hit="item" attribute="path" /> -->
-              <!-- </div> -->
-              <!-- <div class="hit-info">price: {{ item.price }}</div> -->
-              <!-- <div class="hit-info">release date: {{ item.releaseDate }}</div> -->
             </div>
           </template>
         </ais-hits>
@@ -55,6 +44,20 @@
       </div>
       <ais-pagination />
     </ais-instant-search>
+  </div>
+
+  <div v-if="showDialog" class="dialog-overlay">
+    <div class="dialog-box">
+      <h2>Set API Key</h2>
+      <input
+        type="text"
+        v-model="apiKeyInput"
+        placeholder="Enter API Key"
+        class="api-key-input"
+      />
+      <button @click="saveApiKey" class="confirm-button">Confirm</button>
+      <button @click="closeDialog" class="cancel-button">Cancel</button>
+    </div>
   </div>
 </template>
 
@@ -67,18 +70,42 @@ export default {
     AppDebouncedSearchBox,
   },
   data() {
+    const storedApiKey = localStorage.getItem("meilisearchApiKey") || "hello_world123456";
+    let base_url = `${window.location.origin}${window.location.pathname}`;
+    let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
     return {
+      apiKeyInput: storedApiKey,
+      showDialog: false,
       searchClient: instantMeiliSearch(
-        "http://localhost:3000/meilisearch",
-        "hello_world123456",
+        url,
+        storedApiKey,
         {
           finitePagination: true,
         }
       ).searchClient,
     };
   },
+  methods: {
+    saveApiKey() {
+      localStorage.setItem("meilisearchApiKey", this.apiKeyInput);
+      let base_url = `${window.location.origin}${window.location.pathname}`;
+      let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
+      this.searchClient = instantMeiliSearch(
+        url,
+        this.apiKeyInput,
+        {
+          finitePagination: true,
+        }
+      ).searchClient;
+      this.closeDialog();
+    },
+    closeDialog() {
+      this.showDialog = false;
+    },
+  },
 };
 </script>
+
 <style>
 body,
 h1 {
@@ -135,21 +162,6 @@ body {
   font-size: 90%;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  min-height: 50px;
-  padding: 0.5rem 1rem;
-  background-image: linear-gradient(to right, #4dba87, #2f9088);
-  color: #fff;
-  margin-bottom: 1rem;
-}
-
-.header-title {
-  font-size: 1.2rem;
-  font-weight: normal;
-}
-
 .hit-description {
   font-size: 90%;
   margin-bottom: 0.5em;
@@ -194,5 +206,91 @@ body {
 }
 .ais-SearchBox-form {
   margin-bottom: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 0.5rem 1rem;
+  background-image: linear-gradient(to right, #4dba87, #2f9088);
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.header-title {
+  font-size: 1.2rem;
+  font-weight: normal;
+  flex: 1;
+}
+
+.api-key-button {
+  background: #ffffff;
+  color: #2f9088;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5em 1em;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.api-key-button:hover {
+  background: #f0f0f0;
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dialog-box {
+  background: #fff;
+  padding: 2em;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.api-key-input {
+  width: 100%;
+  padding: 0.5em;
+  margin-bottom: 1em;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.confirm-button {
+  background: #4dba87;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5em 1em;
+  cursor: pointer;
+}
+
+.confirm-button:hover {
+  background: #3a9f6e;
+}
+
+.cancel-button {
+  background: #ccc;
+  color: black;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5em 1em;
+  cursor: pointer;
+  margin-left: 0.5em;
+}
+
+.cancel-button:hover {
+  background: #bbb;
 }
 </style>
