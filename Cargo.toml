@@ -12,7 +12,7 @@ hyper-util = { version = "0.1.1", features = ["client-legacy"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs"] }
 tokio = { version = "1.43", features = ["rt", "macros", "signal", "process"] }
-tokio-cron-scheduler = "0.13"
+tokio-cron-scheduler = { version = "0.13", features = ["signal"] }
 cron = "0.15"
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }

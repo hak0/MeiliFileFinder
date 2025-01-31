@@ -78,6 +78,7 @@ async fn check_and_start_meilisearch(meilisearch_config: &config::MeiliSearchCon
 
         // assign environemnt variables for child_builder
         let mut child_builder = Command::new(&meilisearch_bin_path);
+        child_builder.kill_on_drop(true);  // Automatically kill Meilisearch on parent exit
         child_builder.env("MEILI_HTTP_ADDR", meilisearch_url_no_prefix);
         child_builder.env("MEILI_MASTER_KEY", meilisearch_master_key);
         if !meilisearch_db_path.is_empty() {
