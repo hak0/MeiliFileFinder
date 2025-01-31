@@ -31,7 +31,7 @@ pub async fn schedule_projects(
             let is_running_clone = is_running_clone.clone();
 
             Box::pin(async move {
-                if is_running_clone.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst) == Ok(true) {
+                if is_running_clone.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst) == Ok(false) {
                     println!("Job started for {}", project.id);
 
                     let indexer = indexer::Indexer::new(&project, &meilisearch_config);

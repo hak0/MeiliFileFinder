@@ -16,7 +16,7 @@ async fn main() {
     println!("Config Loaded!\n");
     println!("{:}", config);
 
-    check_and_start_meilisearch(&config.meilisearch).await;
+    let meilisearch_child_option = check_and_start_meilisearch(&config.meilisearch).await;
 
     let server = server::start_server(&config.meilisearch);
 
@@ -26,10 +26,18 @@ async fn main() {
     let signal_handler = async {
         signal::ctrl_c().await.expect("Failed to listen for CTRL+C");
         println!("CTRL+C received! Shutting down...");
+
+        if meilisearch_child_option.is_some() {
+            println!("Shutting down Meilisearch...");
+            let meilisearch_child = meilisearch_child_option.unwrap();
+            let mut meilisearch_child = meilisearch_child.lock().await;
+            meilisearch_child.kill().await.expect("Failed to kill Meilisearch");
+        }
     };
 
     // Join the server, scheduler, and signal handler
     tokio::select! {
+        // Join server and scheduler tasks
         _ = async {
             let res = tokio::join!(server, scheduler);
             match res {
@@ -38,15 +46,14 @@ async fn main() {
                 (_, Err(e)) => eprintln!("Scheduler failed to start: {:?}", e),
             }
         } => {},
+        // Signal Handler
         _ = signal_handler => println!(),
     }
 }
 
-async fn check_and_start_meilisearch(meilisearch_config: &config::MeiliSearchConfig) {
-    // check if meilisearch is started, and start it if necessary
-
-    let meilisearch_child = Arc::new(Mutex::new(None));
-
+async fn check_and_start_meilisearch(
+    meilisearch_config: &config::MeiliSearchConfig,
+) -> Option<Arc<Mutex<tokio::process::Child>>> {
     // Check if Meilisearch is running and start if necessary
     if !indexer::is_meilisearch_running(&meilisearch_config).await {
         println!("No available Meilisearch Instance.");
@@ -78,7 +85,7 @@ async fn check_and_start_meilisearch(meilisearch_config: &config::MeiliSearchCon
 
         // assign environemnt variables for child_builder
         let mut child_builder = Command::new(&meilisearch_bin_path);
-        child_builder.kill_on_drop(true);  // Automatically kill Meilisearch on parent exit
+        child_builder.kill_on_drop(true); // Automatically kill Meilisearch on parent exit
         child_builder.env("MEILI_HTTP_ADDR", meilisearch_url_no_prefix);
         child_builder.env("MEILI_MASTER_KEY", meilisearch_master_key);
         if !meilisearch_db_path.is_empty() {
@@ -90,7 +97,7 @@ async fn check_and_start_meilisearch(meilisearch_config: &config::MeiliSearchCon
 
         // Spawn Meilisearch
         let child = child_builder.spawn().expect("Failed to start Meilisearch");
-        *meilisearch_child.lock().await = Some(child);
+        let meilisearch_child = Arc::new(Mutex::new(child));
 
         // Wait for Meilisearch to become ready
         println!("Waiting for Meilisearch to start...");
@@ -109,7 +116,9 @@ async fn check_and_start_meilisearch(meilisearch_config: &config::MeiliSearchCon
             attempts += 1;
             tokio::time::sleep(delay).await;
         }
+        Some(meilisearch_child)
     } else {
         println!("Meilisearch is already running.");
+        None
     }
 }
