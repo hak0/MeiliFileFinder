@@ -129,7 +129,8 @@ impl Indexer {
 
             // Update separators to preserve symbol and numbers in the path, etc.
             let seperators_to_remove = [
-                ".", "/", "\\", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "_", "+", "=", " ",
+                // ".", "/", "\\", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "_", "+", "=",
+                "-", "_",
             ];
             let update_seperators = unwrapped_meili_client
                 .index(index_name)
