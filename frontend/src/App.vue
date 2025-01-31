@@ -1,7 +1,7 @@
 <template>
   <header class="header">
     <h1 class="header-title">MeiliFileFinder</h1>
-    <button class="api-key-button" @click="showDialog = true">Set API Key</button>
+    <button class="api-key-button" @click="showDialog = true">Connection Settings</button>
   </header>
   <p class="disclaimer">
     This is an altered search frontend from Meilisearch's official Vue3 demo.
@@ -9,7 +9,7 @@
   <div class="container">
     <ais-instant-search
       :search-client="searchClient"
-      index-name="filesystem_index"
+      :index-name="indexNameInput"
     >
       <div class="search-panel__filters">
         <ais-sort-by
@@ -48,14 +48,26 @@
 
   <div v-if="showDialog" class="dialog-overlay">
     <div class="dialog-box">
-      <h2>Set API Key</h2>
-      <input
-        type="text"
-        v-model="apiKeyInput"
-        placeholder="Enter API Key"
-        class="api-key-input"
-      />
-      <button @click="saveApiKey" class="confirm-button">Confirm</button>
+      <h2>Connection Settings</h2>
+      <p>
+        <span>Meilisearch Master Key</span>
+        <input
+          type="text"
+          v-model="masterKeyInput"
+          placeholder="Enter API Key"
+          class="api-key-input"
+        />
+      </p>
+      <p>
+        <span>Index Name</span>
+        <input
+          type="text"
+          v-model="indexNameInput"
+          placeholder="Enter Index Name"
+          class="api-key-input"
+        />
+      </p>
+      <button @click="saveMasterKey" class="confirm-button">Confirm</button>
       <button @click="closeDialog" class="cancel-button">Cancel</button>
     </div>
   </div>
@@ -70,15 +82,17 @@ export default {
     AppDebouncedSearchBox,
   },
   data() {
-    const storedApiKey = localStorage.getItem("meilisearchApiKey") || "hello_world123456";
+    const storedMasterKey = localStorage.getItem("meilisearchMasterKey") || "hello_world123456";
+    const storedIndexName = localStorage.getItem("meilisearchIndexName") || "filesystem_index";
     let base_url = `${window.location.origin}${window.location.pathname}`;
     let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
     return {
-      apiKeyInput: storedApiKey,
+      masterKeyInput: storedMasterKey,
+      indexNameInput: storedIndexName,
       showDialog: false,
       searchClient: instantMeiliSearch(
         url,
-        storedApiKey,
+        storedMasterKey,
         {
           finitePagination: true,
         }
@@ -86,13 +100,14 @@ export default {
     };
   },
   methods: {
-    saveApiKey() {
-      localStorage.setItem("meilisearchApiKey", this.apiKeyInput);
+    saveMasterKey() {
+      localStorage.setItem("meilisearchMasterKey", this.masterKeyInput);
+      localStorage.setItem("meilisearchIndexName", this.indexNameInput);
       let base_url = `${window.location.origin}${window.location.pathname}`;
       let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
       this.searchClient = instantMeiliSearch(
         url,
-        this.apiKeyInput,
+        this.masterKeyInput,
         {
           finitePagination: true,
         }

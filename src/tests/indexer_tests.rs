@@ -10,11 +10,13 @@ fn generate_test_config(rootpath: &Path) -> (MeiliSearchConfig, ProjectConfig) {
     let meilisearch_config = MeiliSearchConfig {
         meilisearch_url: "dummy_url".to_string(),
         meilisearch_api_key: "dummy_key".to_string(),
+        meilisearch_index_name: "dummy_index".to_string(),
         meilisearch_bin_path: "".to_string(),
         meilisearch_db_path: "".to_string(),
         meilisearch_telemetry: true,
     };
     let project_config = ProjectConfig {
+        id: "test".to_string(),
         root: PathBuf::from(rootpath),
         crontab: "".to_string(),
         index_hidden: true,

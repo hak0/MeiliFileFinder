@@ -2,6 +2,9 @@ use crate::config::{MeiliSearchConfig, ProjectConfig};
 use crate::file_index::{FileSystemEntry, IndexEntryType};
 use chrono::{DateTime, Utc};
 use ignore::WalkBuilder;
+use meilisearch_sdk::documents::DocumentDeletionQuery;
+use meilisearch_sdk::indexes::IndexesQuery;
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use uuid::Uuid;
@@ -13,6 +16,7 @@ mod file_index_tests;
 #[derive(Debug, Clone)]
 pub struct Indexer {
     pub project_config: ProjectConfig,
+    pub meili_index_name: String,
     pub meili_client: Option<meilisearch_sdk::client::Client>,
 }
 
@@ -34,7 +38,107 @@ impl Indexer {
 
         Indexer {
             project_config: project_config.clone(),
+            meili_index_name: meilisearch_config.meilisearch_index_name.clone(),
             meili_client,
+        }
+    }
+
+    pub async fn configure_meilisearch_index(&self) {
+        let index_name = &self.meili_index_name;
+        if let Some(unwrapped_meili_client) = &self.meili_client {
+            // List all indexes
+            let indexes_query = IndexesQuery::new(&unwrapped_meili_client)
+                .with_limit(1024)
+                .execute()
+                .await;
+            if indexes_query.is_err() {
+                eprintln!("Failed to list indexs!");
+            }
+            let meili_indexes: HashSet<String> = indexes_query
+                .unwrap()
+                .results
+                .into_iter()
+                .map(|index| index.uid)
+                .collect();
+
+            // Create index if not existing
+            if !meili_indexes.contains(index_name) {
+                let index_creation = unwrapped_meili_client
+                    .create_index(index_name, Some("uuid"))
+                    .await;
+                if index_creation.is_err() {
+                    eprintln!("Failed to create index {}!", index_name);
+                }
+            }
+
+            // Update filterable attributes
+            let existing_filterable_attributes: HashSet<String> = match unwrapped_meili_client
+                .index(index_name)
+                .get_filterable_attributes()
+                .await
+            {
+                Ok(filterable_attributes) => filterable_attributes.into_iter().collect(),
+                Err(_) => HashSet::new(),
+            };
+            let filterable_attributes = [
+                "path",
+                "name",
+                "entry_type",
+                "size",
+                "modified_date",
+                "is_hidden",
+                "preview",
+                "project_id",
+                "entry_last_updated",
+            ];
+            if filterable_attributes
+                .iter()
+                .any(|attr| !existing_filterable_attributes.contains(*attr))
+            {
+                let filterable_attributes = unwrapped_meili_client
+                    .index(index_name)
+                    .set_filterable_attributes(&filterable_attributes)
+                    .await;
+                if filterable_attributes.is_err() {
+                    eprintln!("Failed to update filterable attributes!");
+                }
+            }
+
+            // Update sortable attributes
+            let existing_sortable_attibutes: HashSet<String> = match unwrapped_meili_client
+                .index(index_name)
+                .get_sortable_attributes()
+                .await
+            {
+                Ok(sortable_attributes) => sortable_attributes.into_iter().collect(),
+                Err(_) => HashSet::new(),
+            };
+            let sortable_attributes = ["path", "name", "size", "modified_date"];
+            if sortable_attributes
+                .iter()
+                .any(|attr| !existing_sortable_attibutes.contains(*attr))
+            {
+                let sortable_attributes = unwrapped_meili_client
+                    .index(index_name)
+                    .set_sortable_attributes(&sortable_attributes)
+                    .await;
+                if sortable_attributes.is_err() {
+                    eprintln!("Failed to update sortable attributes!");
+                }
+            }
+
+            // Update separators to preserve symbol and numbers in the path, etc.
+            let seperators_to_remove = [
+                ".", "/", "\\", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "_", "+", "=", " ",
+            ];
+            let update_seperators = unwrapped_meili_client
+                .index(index_name)
+                // .set_dictionary(["@", sep])
+                .set_non_separator_tokens(&seperators_to_remove.into_iter().map(|s| s.to_string()).collect())
+                .await;
+            if update_seperators.is_err() {
+                eprintln!("Failed to update separators!");
+            }
         }
     }
 
@@ -44,9 +148,6 @@ impl Indexer {
         let mut scanned_entries = Vec::new();
         // scan and index files and folders
         // return the last batch of scanned entries and the total size of all scanned entries
-
-        // Load the ignore rules (e.g., from a .gitignore file or custom rules)
-        //let ignore_rules = gitignore::Gitignore::new(&self.directory).unwrap();
 
         // Recursively scan the directory
         // Use WalkBuilder to apply ignore rules efficiently
@@ -67,22 +168,14 @@ impl Indexer {
             walkerbuilder.add_custom_ignore_filename(custom_ignore_rule_file);
         }
 
-        // TODO: incrementally sending indexes and deleting obselete indexes smartly
-        // Clean Old Index
-        if let Some(unwrapped_meili_client) = &self.meili_client {
-            let meili_index = unwrapped_meili_client.index("filesystem_index");
-            let delete_operation = meili_index.delete_all_documents().await;
-            if delete_operation.is_err() {
-                eprintln!("Failed to delete old index!");
-            }
-        }
+        let time_now = Utc::now();
 
         let mut scanned_entries_total_count = 0;
         for entry in walkerbuilder.build().filter_map(Result::ok) {
             let path = entry.path();
 
             // Index both files and folders (ignoring based on the rules)
-            if let Some(index_entry) = Indexer::entry_to_index(&path) {
+            if let Some(index_entry) = self.entry_to_index(&path, &time_now).await {
                 scanned_entries.push(index_entry);
                 scanned_entries_total_count += 1;
             }
@@ -97,15 +190,33 @@ impl Indexer {
         // Send remaining entries to MeiliSearch
         self.send_entries_to_meilisearch(&scanned_entries).await;
 
+        // Clean obselete index
+        self.clean_obselete_index(&time_now).await;
+
         Ok((scanned_entries, scanned_entries_total_count))
+    }
+
+    async fn clean_obselete_index(&self, update_time: &DateTime<Utc>) {
+        if let Some(unwrapped_meili_client) = &self.meili_client {
+            let meili_index = unwrapped_meili_client.index(&self.meili_index_name);
+            let delete_operation = DocumentDeletionQuery::new(&meili_index)
+                .with_filter(&format!(
+                    "(project_id = {}) AND (entry_last_updated < {})",
+                    self.project_config.id,
+                    update_time.timestamp()
+                ))
+                .execute::<()>()
+                .await;
+            if delete_operation.is_err() {
+                eprintln!("Failed to delete old index!");
+            }
+        }
     }
 
     async fn send_entries_to_meilisearch(&self, scanned_entries: &Vec<FileSystemEntry>) {
         if let Some(unwrapped_meili_client) = &self.meili_client {
-            let meili_index = unwrapped_meili_client.index("filesystem_index");
-            let create_operation = meili_index
-                .add_documents(scanned_entries, Some("uuid"))
-                .await;
+            let meili_index = unwrapped_meili_client.index(&self.meili_index_name);
+            let create_operation = meili_index.add_documents(scanned_entries, None).await;
             if create_operation.is_err() {
                 eprintln!("Failed to create new index!");
                 for entry in scanned_entries {
@@ -115,7 +226,11 @@ impl Indexer {
         }
     }
 
-    fn entry_to_index(path: &Path) -> Option<FileSystemEntry> {
+    async fn entry_to_index(
+        &self,
+        path: &Path,
+        update_time: &DateTime<Utc>,
+    ) -> Option<FileSystemEntry> {
         let metadata = fs::metadata(path).ok()?;
         let name = path.file_name()?.to_string_lossy().to_string();
         let is_hidden = name.starts_with('.');
@@ -151,6 +266,8 @@ impl Indexer {
             modified_date,
             is_hidden,
             preview: None, // Only relevant for files
+            project_id: self.project_config.id.clone(),
+            entry_last_updated: update_time.timestamp(),
         })
     }
 }

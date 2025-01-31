@@ -8,6 +8,7 @@ use std::{
 pub struct MeiliSearchConfig {
     pub meilisearch_url: String,
     pub meilisearch_api_key: String,
+    pub meilisearch_index_name: String,
     #[serde(default = "default_meilisearch_bin_path")]
     pub meilisearch_bin_path: String,
     #[serde(default = "default_meilisearch_db_path")]
@@ -21,6 +22,7 @@ impl Display for MeiliSearchConfig {
         writeln!(f, "Meilisearch Configuration:")?;
         writeln!(f, "  URL: {}", self.meilisearch_url)?;
         writeln!(f, "  API Key: **hidden**")?;
+        writeln!(f, "  Index Name: {}", self.meilisearch_index_name)?;
         writeln!(f, "  Binary Path: {}", self.meilisearch_bin_path)?;
         writeln!(f, "  Database Path: {}", self.meilisearch_db_path)?;
         writeln!(f, "  Telemetry: {}", self.meilisearch_telemetry)
@@ -29,6 +31,7 @@ impl Display for MeiliSearchConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProjectConfig {
+    pub id: String,
     pub root: PathBuf,
     pub crontab: String,
     #[serde(default = "default_maxdepth")]
@@ -44,6 +47,7 @@ pub struct ProjectConfig {
 impl Display for ProjectConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Project Configuration:")?;
+        writeln!(f, "  ID: {}", self.id)?;
         writeln!(f, "  Root Directory: {:?}", self.root)?;
         writeln!(f, "  Schedule: {}", self.crontab)?;
         writeln!(f, "  Max Depth(0 for infinitive depth): {}", self.max_depth)?;

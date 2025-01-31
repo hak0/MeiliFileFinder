@@ -17,6 +17,8 @@ fn test_filesystem_entry_file() {
         modified_date: Some(Utc::now()),
         is_hidden: false,
         preview: Some("This is a preview".to_string()),
+        project_id: "project1".to_string(),
+        entry_last_updated: 0,
     };
 
     assert_eq!(entry.name, "file1.txt");
@@ -41,6 +43,8 @@ fn test_filesystem_entry_folder() {
         modified_date: None,
         is_hidden: false,
         preview: None,
+        project_id: "project1".to_string(),
+        entry_last_updated: 0,
     };
 
     assert_eq!(entry.name, "my_folder");
@@ -64,6 +68,8 @@ fn test_filesystem_entry_hidden() {
         modified_date: None,
         is_hidden: true,
         preview: None,
+        project_id: "project1".to_string(),
+        entry_last_updated: 0,
     };
 
     assert_eq!(entry.name, ".hidden_folder");

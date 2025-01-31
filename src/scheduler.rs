@@ -27,6 +27,8 @@ pub async fn schedule_projects(
             Box::pin(async move {
                 let indexer = indexer::Indexer::new(&project, &meilisearch_config);
 
+                indexer.configure_meilisearch_index().await;
+
                 match indexer.index_files().await {
                     Ok((_, files_count)) => println!("Indexed {} files in {:?}", files_count, project.root),
                     Err(e) => eprintln!("Error indexing {:?}: {}", project.root, e),

@@ -21,5 +21,7 @@ pub struct FileSystemEntry {
     pub modified_date: Option<DateTime<Utc>>, // Last modified timestamp (optional for folders)
     pub is_hidden: bool,                      // Whether the entry is hidden
     pub preview: Option<String>,              // Optional preview content (for files only)
+    pub project_id: String,                   // The project ID this entry belongs to
+    pub entry_last_updated: i64,                    // The last timestamp this entry was updated
 }
 
