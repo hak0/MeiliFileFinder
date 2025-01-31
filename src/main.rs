@@ -16,24 +16,11 @@ async fn main() {
     println!("Config Loaded!\n");
     println!("{:}", config);
 
-    let meilisearch_child_option = check_and_start_meilisearch(&config.meilisearch).await;
+    let meilisearch_child= check_and_start_meilisearch(&config.meilisearch).await;
 
     let server = server::start_server(&config.meilisearch);
 
     let scheduler = scheduler::schedule_projects(&config.projects, &config.meilisearch);
-
-    // Signal handling for graceful shutdown
-    let signal_handler = async {
-        signal::ctrl_c().await.expect("Failed to listen for CTRL+C");
-        println!("CTRL+C received! Shutting down...");
-
-        if meilisearch_child_option.is_some() {
-            println!("Shutting down Meilisearch...");
-            let meilisearch_child = meilisearch_child_option.unwrap();
-            let mut meilisearch_child = meilisearch_child.lock().await;
-            meilisearch_child.kill().await.expect("Failed to kill Meilisearch");
-        }
-    };
 
     // Join the server, scheduler, and signal handler
     tokio::select! {
@@ -47,7 +34,7 @@ async fn main() {
             }
         } => {},
         // Signal Handler
-        _ = signal_handler => println!(),
+        _ = unified_signal_handler(meilisearch_child) => println!(),
     }
 }
 
@@ -121,4 +108,53 @@ async fn check_and_start_meilisearch(
         println!("Meilisearch is already running.");
         None
     }
+}
+
+async fn unified_signal_handler(meilisearch_child: Option<Arc<Mutex<tokio::process::Child>>>) {
+    // Handle cross-platform `CTRL+C`
+    let ctrl_c = async {
+        signal::ctrl_c().await.expect("Failed to listen for CTRL+C");
+        println!("CTRL+C received. Terminating child process...");
+    };
+
+    #[cfg(unix)]
+    let unix_signals = async {
+        // Register Unix-specific signals
+        let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("Failed to register SIGTERM handler");
+        let mut sigint = signal::unix::signal(signal::unix::SignalKind::interrupt())
+            .expect("Failed to register SIGINT handler");
+        let mut sighup = signal::unix::signal(signal::unix::SignalKind::hangup())
+            .expect("Failed to register SIGHUP handler");
+
+        tokio::select! {
+            _ = sigterm.recv() => println!("SIGTERM received. Terminating child process..."),
+            _ = sigint.recv() => println!("SIGINT received. Terminating child process..."),
+            _ = sighup.recv() => println!("SIGHUP received. Terminating child process..."),
+        }
+    };
+
+    #[cfg(not(unix))]
+    let unix_signals = async {
+        // No-op on non-Unix platforms
+        futures::future::pending::<()>().await;
+    };
+
+    // Use `tokio::select!` to wait for any signal
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = unix_signals => {},
+    }
+
+    // Kill the child process if running
+    if let Some(child_mutex) = meilisearch_child {
+        let mut child = child_mutex.lock().await;
+        match child.kill().await {
+            Ok(_) => println!("Child process terminated successfully."),
+            Err(e) => eprintln!("Failed to terminate child process: {:?}", e),
+        }
+    }
+
+    // Exit the program
+    std::process::exit(0);
 }
