@@ -1,34 +1,29 @@
 <template>
-  <header class="header">
-    <h1 class="header-title">MeiliFileFinder</h1>
-    <button class="api-key-button" @click="showDialog = true">Connection Settings</button>
-  </header>
-  <p class="disclaimer">
-    This is an altered search frontend from Meilisearch's official Vue3 demo.
-  </p>
   <div class="container">
-    <ais-instant-search
-      :search-client="searchClient"
-      :index-name="indexNameInput"
-    >
-      <div class="search-panel__filters">
-        <ais-sort-by
-          :items="[
-            { value: 'filesystem_index', label: 'Relevant' },
-            {
-              value: 'filesystem_index:modified_date:desc',
-              label: 'Newest',
-            },
-            {
-              value: 'filesystem_index:modified_date:asc',
-              label: 'Oldest',
-            },
-          ]"
-        />
-      </div>
-      <div class="search-panel__results">
+    <ais-instant-search :search-client="searchClient" :index-name="indexNameInput">
+      <header class="header">
+        <h1 class="header-title">MeiliFileFinder</h1>
+        <div class="search-panel__filters"></div>
         <app-debounced-search-box :delay="5" class="ais-SearchBox-input" />
-        <ais-hits>
+        <div>
+        <ais-sort-by :items="[
+          { value: 'filesystem_index', label: 'Relevant' },
+          {
+            value: 'filesystem_index:modified_date:desc',
+            label: 'Newest',
+          },
+          {
+            value: 'filesystem_index:modified_date:asc',
+            label: 'Oldest',
+          },
+        ]" />
+        </div>
+
+        <button class="api-key-button" @click="showDialog = true">Connection Settings</button>
+      </header>
+
+      <div class="search-panel__results">
+        <ais-infinite-hits>
           <template v-slot:item="{ item }">
             <div>
               <div class="hit-name">
@@ -36,13 +31,20 @@
               </div>
             </div>
           </template>
-        </ais-hits>
-        <ais-configure
-          :attributesToSnippet="['path:50']"
-          snippetEllipsisText="…"
-        />
+          <template v-slot:loadMore="{ isLastPage, refineNext }">
+            <button
+              class="ais-InfiniteHits-loadMore"
+              :disabled="isLastPage"
+              v-observe-visibility="refineNext"
+              @click="refineNext"
+            >
+              Show more results
+            </button>
+          </template>
+        </ais-infinite-hits>
+        <ais-configure :analytics="false" :attributesToSnippet="['path:50']" hitsPerPage="128" snippetEllipsisText="…" />
       </div>
-      <ais-pagination />
+      <!-- <ais-pagination /> -->
     </ais-instant-search>
   </div>
 
@@ -51,21 +53,11 @@
       <h2>Connection Settings</h2>
       <p>
         <span>Meilisearch Master Key</span>
-        <input
-          type="text"
-          v-model="masterKeyInput"
-          placeholder="Enter API Key"
-          class="api-key-input"
-        />
+        <input type="text" v-model="masterKeyInput" placeholder="Enter API Key" class="api-key-input" />
       </p>
       <p>
         <span>Index Name</span>
-        <input
-          type="text"
-          v-model="indexNameInput"
-          placeholder="Enter Index Name"
-          class="api-key-input"
-        />
+        <input type="text" v-model="indexNameInput" placeholder="Enter Index Name" class="api-key-input" />
       </p>
       <button @click="saveMasterKey" class="confirm-button">Confirm</button>
       <button @click="closeDialog" class="cancel-button">Cancel</button>
@@ -84,8 +76,10 @@ export default {
   data() {
     const storedMasterKey = localStorage.getItem("meilisearchMasterKey") || "hello_world123456";
     const storedIndexName = localStorage.getItem("meilisearchIndexName") || "filesystem_index";
-    let base_url = `${window.location.origin}${window.location.pathname}`;
-    let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
+    //let base_url = `${window.location.origin}${window.location.pathname}`;
+    //let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
+    let url = "https://wg.hafuhafuhako.uk:16031/meilisearch"
+
     return {
       masterKeyInput: storedMasterKey,
       indexNameInput: storedIndexName,
@@ -100,6 +94,9 @@ export default {
     };
   },
   methods: {
+    visibilityChanged(isVisible) {
+      console.log("Visibility changed: ", isVisible);
+    },
     saveMasterKey() {
       localStorage.setItem("meilisearchMasterKey", this.masterKeyInput);
       localStorage.setItem("meilisearchIndexName", this.indexNameInput);
@@ -133,11 +130,12 @@ body {
     Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
-.ais-Hits-list {
-  display:block !important;
+.ais-InfiniteHits-list {
+  padding: 0rem .65rem 0rem .65rem !important;
+  display: block !important;
 }
 
-.ais-Hits-item {
+.ais-InfiniteHits-item {
   width: auto !important;
   padding: 0px !important;
   box-shadow: none !important;
@@ -145,15 +143,17 @@ body {
   margin-left: 1em !important;
   margin-bottom: 0px !important;
   margin-right: 0px !important;
-  padding-left: 1em !important;
-  padding-top: 0.2em !important;
-  padding-bottom: 0.2em !important;
+  padding-left: 2em !important;
+  padding-top: 0.3em !important;
+  padding-bottom: 0.3em !important;
   border-color: #eee !important;
+  border-left: 0;
+  border-right: 0;
   /* margin-bottom: 1em; */
   /*width: calc(50% - 1rem);*/
 }
 
-.ais-Hits-item img {
+.ais-InfiniteHits-item img {
   margin-right: 1em;
   width: 100%;
   height: 100%;
@@ -169,12 +169,15 @@ body {
   margin-left: 1em;
 }
 
-.hit-name {
-  margin-bottom: 0.5em;
-}
-
 .hit-info {
   font-size: 90%;
+}
+
+.hit-name {
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+  font-family: 'Noto Sans SC', sans-serif;
+  line-height: 16px;
+  font-size: 1em;
 }
 
 .hit-description {
@@ -183,18 +186,10 @@ body {
   color: grey;
 }
 
-.header-title::after {
-  content: " ▸ ";
-  padding: 0 0.5rem;
-}
-
 .header-subtitle {
   font-size: 1.2rem;
 }
 
-.container {
-  padding: 1rem;
-}
 
 .ais-InstantSearch {
   /* max-width: 960px; */
@@ -204,46 +199,84 @@ body {
 
 .search-panel__filters {
   float: left;
-  width: 200px;
+  width: 20px;
 }
 
-.search-panel__results {
-  margin-left: 210px;
-}
 
 .ais-SearchBox {
   margin-bottom: 2rem;
+}
+
+.ais-SearchBox-input {
+  width: auto !important;
+  padding: 0 .5rem 0 1.7rem !important;
+  border-radius: 0 !important;
+  border: 1px solid #ccc;
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+  font-family: 'Noto Sans SC', sans-serif;
+  line-height: 18px;
+  font-size: 1em;
+}
+
+input.ais-SearchBox-input {
+  width: 100% !important;
+  border: 0;
+  padding: .3rem 0 .3rem .3rem !important;
+}
+
+.ais-SortBy-select {
+  border-radius: 3px !important;
+  padding-left: .7rem !important;
+}
+
+.ais-SortBy {
+  display: flex;
+  margin: 0 1rem;
+}
+
+.ais-Pagination-item--selected .ais-Pagination-link {
+  color: #fff !important;
+  background-color: #369988 !important;
+  border-color: #369988 !important;
+}
+
+.ais-Pagination-link {
+  border-radius: 3px !important;
+  color: #369988 !important;
 }
 
 .ais-Pagination {
   margin: 2rem auto;
   text-align: center;
 }
+
 .ais-SearchBox-form {
-  margin-bottom: 20px;
+  /* margin: 10px 10px 30px 10px; */
+  flex: 1;
 }
 
 .header {
   display: flex;
   align-items: center;
   min-height: 50px;
-  padding: 0.5rem 1rem;
+  padding: 0 1rem;
   background-image: linear-gradient(to right, #4dba87, #2f9088);
   color: #fff;
-  margin-bottom: 1rem;
 }
 
 .header-title {
   font-size: 1.2rem;
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+  font-family: 'Noto Sans SC', sans-serif;
+  line-height: 16px;
   font-weight: normal;
-  flex: 1;
 }
 
 .api-key-button {
   background: #ffffff;
   color: #2f9088;
   border: none;
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 0.5em 1em;
   cursor: pointer;
   font-size: 0.9rem;
@@ -307,5 +340,23 @@ body {
 
 .cancel-button:hover {
   background: #bbb;
+}
+
+.search-panel__results {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.ais-InfiniteHits-loadMore {
+  margin-top: 0 !important;
+  width: 100%;
+  background-color: #fff !important;
+  color: #2f9088 !important;
+}
+
+.ais-InfiniteHits-loadMore[disabled] {
+  display: none;
 }
 </style>
