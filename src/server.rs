@@ -13,6 +13,15 @@ type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
 const MEILISEARCH_ENTRY_PREFIX: &str = "/meilisearch";
 
 pub async fn start_server(meilisearch_config: &MeiliSearchConfig) -> Result<(), Box<dyn std::error::Error>> {
+    // 在启动服务器前创建index name配置文件
+    let frontend_config_path = "static/meilisearch_config.json";
+    let config_content = serde_json::json!({
+        "index_name": meilisearch_config.meilisearch_index_name
+    });
+    tokio::fs::write(frontend_config_path, config_content.to_string())
+        .await
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
     // Serve static files and fallback to index.html for client-side routing
     println!("Starting Server!");
     let file_server = ServeDir::new("static").not_found_service(ServeDir::new("static/index.html"));

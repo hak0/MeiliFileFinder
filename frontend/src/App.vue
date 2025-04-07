@@ -19,7 +19,7 @@
         ]" />
         </div>
 
-        <button class="api-key-button" @click="showDialog = true">Connection Settings</button>
+        <button class="api-key-button" @click="showDialog = true">Settings</button>
       </header>
 
       <div class="search-panel__results">
@@ -46,22 +46,10 @@
       </div>
       <!-- <ais-pagination /> -->
     </ais-instant-search>
-  </div>
-
-  <div v-if="showDialog" class="dialog-overlay">
-    <div class="dialog-box">
-      <h2>Connection Settings</h2>
-      <p>
-        <span>Meilisearch Master Key</span>
-        <input type="text" v-model="masterKeyInput" placeholder="Enter API Key" class="api-key-input" />
-      </p>
-      <p>
-        <span>Index Name</span>
-        <input type="text" v-model="indexNameInput" placeholder="Enter Index Name" class="api-key-input" />
-      </p>
-      <button @click="saveMasterKey" class="confirm-button">Confirm</button>
-      <button @click="closeDialog" class="cancel-button">Cancel</button>
-    </div>
+    
+    <button v-if="showBackToTop" class="back-to-top" @click="scrollToTop">
+      ⇧
+    </button>
   </div>
 </template>
 
@@ -75,15 +63,17 @@ export default {
   },
   data() {
     const storedMasterKey = localStorage.getItem("meilisearchMasterKey") || "hello_world123456";
-    const storedIndexName = localStorage.getItem("meilisearchIndexName") || "filesystem_index";
-    //let base_url = `${window.location.origin}${window.location.pathname}`;
-    //let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
-    let url = "https://wg.hafuhafuhako.uk:16031/meilisearch"
+    let base_url = `${window.location.origin}${window.location.pathname}`;
+    if (!base_url.endsWith('/')) {
+      base_url += '/'; 
+    }
+    let url = base_url + 'meilisearch';
 
     return {
       masterKeyInput: storedMasterKey,
-      indexNameInput: storedIndexName,
+      indexNameInput: "filesystem_index",
       showDialog: false,
+      configJsonUrl: base_url + 'meilisearch_config.json', // 将配置URL作为数据属性
       searchClient: instantMeiliSearch(
         url,
         storedMasterKey,
@@ -91,17 +81,32 @@ export default {
           finitePagination: true,
         }
       ).searchClient,
+      showBackToTop: false
     };
+  },
+  mounted() {
+    window.addEventListener('scroll', this.handleScroll);
+  },
+  beforeUnmount() {
+    window.removeEventListener('scroll', this.handleScroll);
   },
   methods: {
     visibilityChanged(isVisible) {
       console.log("Visibility changed: ", isVisible);
     },
-    saveMasterKey() {
+    async saveMasterKey() {
       localStorage.setItem("meilisearchMasterKey", this.masterKeyInput);
-      localStorage.setItem("meilisearchIndexName", this.indexNameInput);
       let base_url = `${window.location.origin}${window.location.pathname}`;
       let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
+      
+      try {
+        const response = await fetch(this.configJsonUrl); // 使用this.configJsonUrl
+        const config = await response.json();
+        this.indexNameInput = config.index_name;
+      } catch (error) {
+        console.error("Failed to reload config:", error);
+      }
+
       this.searchClient = instantMeiliSearch(
         url,
         this.masterKeyInput,
@@ -114,7 +119,16 @@ export default {
     closeDialog() {
       this.showDialog = false;
     },
-  },
+    handleScroll() {
+      this.showBackToTop = window.scrollY > 300;
+    },
+    scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  }
 };
 </script>
 
@@ -123,6 +137,13 @@ body,
 h1 {
   margin: 0;
   padding: 0;
+}
+
+/* 新增移动端隐藏标题的样式 */
+@media (max-width: 768px) {
+  .header-title {
+    display: none;
+  }
 }
 
 body {
@@ -149,8 +170,6 @@ body {
   border-color: #eee !important;
   border-left: 0;
   border-right: 0;
-  /* margin-bottom: 1em; */
-  /*width: calc(50% - 1rem);*/
 }
 
 .ais-InfiniteHits-item img {
@@ -192,12 +211,12 @@ body {
 
 
 .ais-InstantSearch {
-  /* max-width: 960px; */
   overflow: hidden;
   margin: 0;
 }
 
 .search-panel__filters {
+  display: none;
   float: left;
   width: 20px;
 }
@@ -209,10 +228,9 @@ body {
 
 .ais-SearchBox-input {
   width: auto !important;
-  padding: 0 .5rem 0 1.7rem !important;
+  padding: 0 .1rem 0 1.7rem !important;
   border-radius: 0 !important;
   border: 1px solid #ccc;
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
   font-family: 'Noto Sans SC', sans-serif;
   line-height: 18px;
   font-size: 1em;
@@ -251,11 +269,16 @@ input.ais-SearchBox-input {
 }
 
 .ais-SearchBox-form {
-  /* margin: 10px 10px 30px 10px; */
+  margin: 10px 10px 10px 10px;
   flex: 1;
 }
 
 .header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   display: flex;
   align-items: center;
   min-height: 50px;
@@ -266,7 +289,6 @@ input.ais-SearchBox-input {
 
 .header-title {
   font-size: 1.2rem;
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
   font-family: 'Noto Sans SC', sans-serif;
   line-height: 16px;
   font-weight: normal;
@@ -358,5 +380,31 @@ input.ais-SearchBox-input {
 
 .ais-InfiniteHits-loadMore[disabled] {
   display: none;
+}
+.container {
+  padding-top: 36px; /* 给header留出空间 */
+}
+
+.back-to-top {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: #2f9088;
+  color: white;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-to-top:hover {
+  background-color: #4dba87;
 }
 </style>

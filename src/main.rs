@@ -8,11 +8,46 @@ use std::sync::Arc;
 use tokio::process::Command;
 use tokio::signal;
 use tokio::sync::Mutex;
+use clap::{Arg, Command as ClapCommand};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    // 解析命令行参数
+    let matches = ClapCommand::new("MeiliFileFinder")
+        .version("0.1.0")
+        .about("A file indexing and search tool using Meilisearch")
+        .arg(
+            Arg::new("config")
+                .short('c')
+                .long("conf")
+                .value_name("FILE")
+                .help("Sets a custom config file path")
+                .required(false),
+        )
+        .get_matches();
+
+    // 获取配置文件路径，如果没有则显示帮助信息
+    let config_path = match matches.get_one::<String>("config") {
+        Some(path) => path.as_str(),
+        None => {
+            println!("{}", ClapCommand::new("MeiliFileFinder")
+                .version("0.1.0")
+                .about("A file indexing and search tool using Meilisearch")
+                .arg(
+                    Arg::new("config")
+                        .short('c')
+                        .long("conf")
+                        .value_name("FILE")
+                        .help("Sets a custom config file path")
+                        .required(false),
+                )
+                .render_help());
+            std::process::exit(1);
+        }
+    };
+
     // Read Config
-    let config = config::read_config("doc/config.toml").expect("Failed to read config file");
+    let config = config::read_config(config_path).expect("Failed to read config file");
     println!("Config Loaded!\n");
     println!("{:}", config);
 

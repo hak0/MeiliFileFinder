@@ -29,7 +29,7 @@ I will add functionalities in the future:
   - [ ] add filters to filter by file type, file size, and file modification time
   - [x] add a "sort by" option
   - [ ] parse file types from the extension and add filetype icons for each entry
-  - [ ] make the UI more user-friendly, and fit mobile devices as well
+  - [x] make the UI more user-friendly, and fit mobile devices as well
   - [ ] maybe an extra setup to configure a webdav root path, so that the files can be downloaded, making it more close to Everything
 - [ ] misc
   - [ ] pack a single docker image, maybe based on the meilisearch image(alpine) for both x86-64 and arm64

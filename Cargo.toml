@@ -1,9 +1,10 @@
 [package]
 name = "MeiliFileFinder"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
+clap = { version = "4.0", features = ["derive"] }
 meilisearch-sdk = "0.27"
 futures = "0.3"
 axum = "0.8"
