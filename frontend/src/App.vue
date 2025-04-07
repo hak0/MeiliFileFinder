@@ -106,8 +106,6 @@ export default {
     },
     async saveMasterKey() {
       localStorage.setItem("meilisearchMasterKey", this.masterKeyInput);
-      let base_url = `${window.location.origin}${window.location.pathname}`;
-      let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
 
       try {
         const response = await fetch(this.configJsonUrl); // 使用this.configJsonUrl
