@@ -6,17 +6,17 @@
         <div class="search-panel__filters"></div>
         <app-debounced-search-box :delay="5" class="ais-SearchBox-input" />
         <div>
-        <ais-sort-by :items="[
-          { value: 'filesystem_index', label: 'Relevant' },
-          {
-            value: 'filesystem_index:modified_date:desc',
-            label: 'Newest',
-          },
-          {
-            value: 'filesystem_index:modified_date:asc',
-            label: 'Oldest',
-          },
-        ]" />
+          <ais-sort-by :items="[
+            { value: 'filesystem_index', label: 'Relevant' },
+            {
+              value: 'filesystem_index:modified_date:desc',
+              label: 'Newest',
+            },
+            {
+              value: 'filesystem_index:modified_date:asc',
+              label: 'Oldest',
+            },
+          ]" />
         </div>
 
         <button class="api-key-button" @click="showDialog = true">Settings</button>
@@ -32,24 +32,34 @@
             </div>
           </template>
           <template v-slot:loadMore="{ isLastPage, refineNext }">
-            <button
-              class="ais-InfiniteHits-loadMore"
-              :disabled="isLastPage"
-              v-observe-visibility="refineNext"
-              @click="refineNext"
-            >
+            <button class="ais-InfiniteHits-loadMore" :disabled="isLastPage" v-observe-visibility="refineNext"
+              @click="refineNext">
               Show more results
             </button>
           </template>
         </ais-infinite-hits>
-        <ais-configure :analytics="false" :attributesToSnippet="['path:50']" hitsPerPage="128" snippetEllipsisText="…" />
+        <ais-configure :analytics="false" :attributesToSnippet="['path:50']" hitsPerPage="128"
+          snippetEllipsisText="…" />
       </div>
       <!-- <ais-pagination /> -->
     </ais-instant-search>
-    
+
     <button v-if="showBackToTop" class="back-to-top" @click="scrollToTop">
       ⇧
     </button>
+
+    <div v-if="showDialog" class="dialog-overlay">
+      <div class="dialog-box">
+        <h2>Connection Settings</h2>
+        <p>
+          <span>Meilisearch Master Key</span>
+          <br />
+          <input type="text" v-model="masterKeyInput" placeholder="Enter API Key" class="api-key-input" />
+        </p>
+        <button @click="saveMasterKey" class="confirm-button">Confirm</button>
+        <button @click="closeDialog" class="cancel-button">Cancel</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -65,7 +75,7 @@ export default {
     const storedMasterKey = localStorage.getItem("meilisearchMasterKey") || "hello_world123456";
     let base_url = `${window.location.origin}${window.location.pathname}`;
     if (!base_url.endsWith('/')) {
-      base_url += '/'; 
+      base_url += '/';
     }
     let url = base_url + 'meilisearch';
 
@@ -98,7 +108,7 @@ export default {
       localStorage.setItem("meilisearchMasterKey", this.masterKeyInput);
       let base_url = `${window.location.origin}${window.location.pathname}`;
       let url = base_url + (base_url.endsWith('/') ? 'meilisearch' : '/meilisearch');
-      
+
       try {
         const response = await fetch(this.configJsonUrl); // 使用this.configJsonUrl
         const config = await response.json();
@@ -107,14 +117,9 @@ export default {
         console.error("Failed to reload config:", error);
       }
 
-      this.searchClient = instantMeiliSearch(
-        url,
-        this.masterKeyInput,
-        {
-          finitePagination: true,
-        }
-      ).searchClient;
       this.closeDialog();
+      // refresh page
+      window.location.reload();
     },
     closeDialog() {
       this.showDialog = false;
@@ -133,6 +138,8 @@ export default {
 </script>
 
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+
 body,
 h1 {
   margin: 0;
@@ -193,7 +200,6 @@ body {
 }
 
 .hit-name {
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
   font-family: 'Noto Sans SC', sans-serif;
   line-height: 16px;
   font-size: 1em;
@@ -320,16 +326,19 @@ input.ais-SearchBox-input {
   align-items: center;
 }
 
+.dialog-overlay h2 {
+  margin: 0;
+}
+
 .dialog-box {
   background: #fff;
-  padding: 2em;
+  padding: 1.5rem;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
 .api-key-input {
-  width: 100%;
   padding: 0.5em;
   margin-bottom: 1em;
   font-size: 1rem;
@@ -381,8 +390,10 @@ input.ais-SearchBox-input {
 .ais-InfiniteHits-loadMore[disabled] {
   display: none;
 }
+
 .container {
-  padding-top: 36px; /* 给header留出空间 */
+  padding-top: 36px;
+  /* 给header留出空间 */
 }
 
 .back-to-top {
